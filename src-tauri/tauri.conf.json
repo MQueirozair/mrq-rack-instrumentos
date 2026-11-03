@@ -13,7 +13,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "MRQ - Multitracks Play",
+        "title": "MRQ Rack de Instrumentos",
         "width": 1360,
         "height": 860,
         "minWidth": 1040,

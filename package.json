@@ -1,15 +1,14 @@
 {
   "name": "mrq-rack-instrumentos",
-  "productName": "MRQ - Multitracks Play",
+  "productName": "MRQ Rack de Instrumentos",
   "private": true,
   "version": "0.2.48",
-  "description": "MRQ - Multitracks Play: tocador de multitracks ao vivo para banda/culto.",
+  "description": "MRQ Rack de Instrumentos: rack de instrumentos virtuais (SF2/NKI/EXS24/DX7/.mrq) com efeitos e pads, tocável via teclado virtual ou MIDI.",
   "author": "MRQ",
   "main": "dist-electron/electron/main.js",
   "type": "module",
   "scripts": {
     "dev": "node scripts/build-rack-worklets.cjs && vite",
-    "dev:preview": "node scripts/build-rack-worklets.cjs && vite --config vite.preview.config.ts",
     "dev:electron": "tsc -p electron/tsconfig.json && node scripts/copy-static.cjs && electron .",
     "build:renderer": "node scripts/build-rack-worklets.cjs && tsc --noEmit && vite build",
     "build:electron": "tsc -p electron/tsconfig.json && node scripts/copy-static.cjs",
@@ -72,8 +71,8 @@
     "vite": "^5.3.3"
   },
   "build": {
-    "appId": "com.mrq.multitracksplay",
-    "productName": "MRQ - Multitracks Play",
+    "appId": "com.mrq.rackinstrumentos",
+    "productName": "MRQ Rack de Instrumentos",
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
