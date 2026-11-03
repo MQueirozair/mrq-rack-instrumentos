@@ -1,0 +1,19 @@
+[package]
+name = "npno-wasm"
+version = "0.1.0"
+edition = "2021"
+description = "Wrapper wasm para decodificar bibliotecas de piano Nord (.npno) usando o crate nord-format, para uso no Rack de instrumentos do MRQ - Multitracks Play."
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+nord-format = "0.8"
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = "s"
+lto = true

@@ -1,0 +1,9 @@
+# Flags de link necessárias só no Apple Silicon (aarch64-apple-darwin) pra
+# compilar whisper-rs/whisper.cpp (ver src/speech.rs) — sem isso o link falha
+# procurando por símbolos do libc++ e do framework Accelerate (usado pelo
+# whisper.cpp pra BLAS acelerado em macOS). Não afeta build em outra
+# plataforma/target (ex. x86_64-apple-darwin, usado pela outra metade do
+# bundle "universal" do CI) porque a seção é específica desse target triple.
+# Ver BUILDING.md do whisper-rs: https://github.com/tazz4843/whisper-rs/blob/master/BUILDING.md
+[target.aarch64-apple-darwin]
+rustflags = ["-lc++", "-l", "framework=Accelerate"]

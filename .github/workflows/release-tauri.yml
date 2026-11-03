@@ -1,0 +1,146 @@
+name: Release (Tauri)
+
+# Builda a casca nativa Tauri para Windows, macOS (universal) e Linux e publica
+# um GitHub Release com os instaladores + o manifesto assinado do updater
+# (latest.json), usado pelo tauri-plugin-updater em runtime (ver
+# src-tauri/tauri.conf.json > plugins.updater.endpoints).
+#
+# Dispara em push de tag "v*" (ex.: v0.2.0) ou manualmente via Actions.
+# O release é criado como RASCUNHO (draft) — fica invisível pro updater e
+# pros usuários até alguém revisar os artefatos e publicá-lo manualmente.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  # Windows e macOS: usa a action oficial, que builda, assina os artefatos
+  # do updater e já publica tudo (incluindo o latest.json) no release.
+  release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            args: '--target universal-apple-darwin'
+          - platform: 'windows-latest'
+            args: ''
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - name: cache do cargo
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: dependências do frontend
+        run: npm ci
+
+      # whisper-rs/whisper.cpp (ver src-tauri/src/speech.rs) usa bindgen, que
+      # precisa achar o libclang do LLVM já pré-instalado na imagem do
+      # runner Windows (em C:\Program Files\LLVM) — sem essa variável o
+      # bindgen às vezes não acha o libclang sozinho e o build falha.
+      - name: LIBCLANG_PATH (Windows, necessário pro build do whisper-rs)
+        if: matrix.platform == 'windows-latest'
+        run: echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'MRQ Multitracks Play v__VERSION__'
+          releaseBody: |
+            ## Nesta versão
+
+            - Correção de robustez no boot (blindagem contra tela preta ao
+              abrir o app: qualquer erro fatal antes do React montar agora
+              mostra uma tela de erro com detalhes, em vez de ficar só com a
+              cor de fundo e nada mais).
+            - Novo formato suportado no Rack de instrumentos: bibliotecas de
+              amostra da Nord Sample Library (**.nsmp**, **.nsmp3**,
+              **.nsmp4** — Stage/Electro/Piano/Wave/Grand), decodificadas de
+              verdade (mesmo crate/pipeline Rust/wasm já usado pro .npno).
+
+            **Requisitos:** macOS 10.15 (Catalina) ou mais recente, Windows
+            7+, ou Linux com WebKitGTK. Quem usa macOS 10.12–10.14
+            (Sierra/High Sierra/Mojave) deve continuar na última versão em
+            Electron (v0.1.18).
+          releaseDraft: true
+          prerelease: false
+          args: ${{ matrix.args }}
+
+  # Linux: builda e publica os pacotes manualmente, à parte. O tauri-action
+  # tem um bug conhecido de detecção de nomes de artefato especificamente no
+  # Linux quando o productName tem espaço — ele monta dois nomes candidatos
+  # (nenhum bate com o nome real gerado pelo bundler) e falha o upload
+  # inteiro. Builda igual, só não usa a action pra publicar: sobe os
+  # pacotes brutos direto. Fica SEM o manifesto assinado do updater por
+  # enquanto (usuários Linux atualizam baixando a versão nova manualmente,
+  # não recebem o aviso automático de atualização).
+  release-linux:
+    needs: release
+    permissions:
+      contents: write
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: instalar dependências de sistema
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libasound2-dev cmake libclang-dev
+
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cache do cargo
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: dependências do frontend
+        run: npm ci
+
+      - name: build do frontend
+        run: npm run build
+
+      - name: build + bundle (Tauri CLI direto, sem passar pela tauri-action)
+        run: npx --yes @tauri-apps/cli@2 build --bundles deb,rpm,appimage
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - name: publicar pacotes Linux no release (rascunho) já criado acima
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          files: |
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/rpm/*.rpm
+            src-tauri/target/release/bundle/appimage/*.AppImage
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

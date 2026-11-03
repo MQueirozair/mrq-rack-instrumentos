@@ -1,0 +1,71 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "MRQ Rack de Instrumentos",
+  "version": "0.2.48",
+  "identifier": "com.mrq.rackinstrumentos",
+  "build": {
+    "beforeDevCommand": "node scripts/build-rack-worklets.cjs",
+    "beforeBuildCommand": "npm run build:renderer",
+    "devUrl": "http://localhost:5173",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "MRQ - Multitracks Play",
+        "width": 1360,
+        "height": 860,
+        "minWidth": 1040,
+        "minHeight": 660,
+        "decorations": false,
+        "transparent": false,
+        "backgroundColor": "#0b0b0d",
+        "dragDropEnabled": false
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "**"
+        ]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis",
+      "dmg",
+      "app"
+    ],
+    "resources": {
+      "../electron/remote-ui/*": "remote-ui/"
+    },
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15"
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/MQueirozair/mrq-multitracks-play/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFFNTVBNDYxRjA2NjlBODEKUldTQm1tYndZYVJWcmc5UWRuaDVpTFE2dFBCT0lSWlEwd3l1ZGJlYlV2WUU2MXJ6YXZtTlVRWGQK"
+    }
+  }
+}

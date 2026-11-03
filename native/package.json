@@ -1,0 +1,12 @@
+{
+  "name": "mrq-juce-native",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Motor de audio nativo (JUCE) para o Rack do MRQ Multitracks Play - prova de conceito.",
+  "dependencies": {
+    "node-addon-api": "^8.3.0"
+  },
+  "devDependencies": {
+    "cmake-js": "^8.0.0"
+  }
+}

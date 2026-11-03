@@ -1,0 +1,13 @@
+[package]
+name = "npno-fixture-gen"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Gera um arquivo .npno sintético (via o encoder real do nord-format) só para testes de ponta a ponta do Rack, sem depender de bibliotecas comerciais da Clavia."
+
+[[bin]]
+name = "npno-fixture-gen"
+path = "src/main.rs"
+
+[dependencies]
+nord-format = "0.8"

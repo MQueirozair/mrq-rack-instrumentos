@@ -1,0 +1,131 @@
+{
+  "name": "mrq-rack-instrumentos",
+  "productName": "MRQ - Multitracks Play",
+  "private": true,
+  "version": "0.2.48",
+  "description": "MRQ - Multitracks Play: tocador de multitracks ao vivo para banda/culto.",
+  "author": "MRQ",
+  "main": "dist-electron/electron/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/build-rack-worklets.cjs && vite",
+    "dev:preview": "node scripts/build-rack-worklets.cjs && vite --config vite.preview.config.ts",
+    "dev:electron": "tsc -p electron/tsconfig.json && node scripts/copy-static.cjs && electron .",
+    "build:renderer": "node scripts/build-rack-worklets.cjs && tsc --noEmit && vite build",
+    "build:electron": "tsc -p electron/tsconfig.json && node scripts/copy-static.cjs",
+    "build": "npm run build:renderer && npm run build:electron",
+    "start": "npm run build && electron .",
+    "dist:win": "npm run build && electron-builder --win --x64",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:win:publish": "npm run build && electron-builder --win --x64 --publish always",
+    "dist:mac:publish": "npm run build && electron-builder --mac --publish always",
+    "lint": "tsc -b --noEmit",
+    "test:parts": "node scripts/test-part-recognition.mjs && node scripts/test-speech-part-recognition.mjs",
+    "test:syx": "node scripts/test-syx-import.mjs",
+    "test:nki": "node scripts/test-nki-import.mjs",
+    "test:exs": "node scripts/test-exs-import.mjs",
+    "test:mrq-rack": "node scripts/test-mrq-rack-layer.mjs",
+    "test:sf2-sanitize": "node scripts/test-sf2-info-sanitize.mjs",
+    "test:kontakt-capture": "node scripts/test-kontakt-capture.mjs"
+  },
+  "dependencies": {
+    "@audio/synth-dx7": "^0.1.0",
+    "@tauri-apps/api": "^2.12.4",
+    "@tauri-apps/plugin-dialog": "^2.8.3",
+    "@tauri-apps/plugin-fs": "^2.7.1",
+    "@tauri-apps/plugin-opener": "^2.7.2",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-shell": "^2.3.3",
+    "@tauri-apps/plugin-store": "^2.5.0",
+    "@tauri-apps/plugin-updater": "^2.14.0",
+    "electron-store": "^8.2.0",
+    "electron-updater": "^6.8.9",
+    "express": "^4.19.2",
+    "fflate": "^0.8.3",
+    "js-synthesizer": "^1.11.0",
+    "lucide-react": "^1.61.0",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "soundfont2": "^0.5.0",
+    "soundtouchjs": "^0.3.0",
+    "uuid": "^9.0.1",
+    "ws": "^8.18.0",
+    "zustand": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/audioworklet": "^0.0.100",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.14.9",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/uuid": "^9.0.8",
+    "@types/ws": "^8.5.10",
+    "@vitejs/plugin-react": "^4.3.1",
+    "electron": "19.1.9",
+    "electron-builder": "^24.13.3",
+    "esbuild": "^0.21.5",
+    "png2icons": "^2.0.1",
+    "sharp": "^0.35.5",
+    "typescript": "^5.5.3",
+    "vite": "^5.3.3"
+  },
+  "build": {
+    "appId": "com.mrq.multitracksplay",
+    "productName": "MRQ - Multitracks Play",
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json",
+      "!dist/mac/**",
+      "!dist/mac-arm64/**",
+      "!dist/win-unpacked/**",
+      "!dist/*.exe",
+      "!dist/*.exe.blockmap",
+      "!dist/*.zip",
+      "!dist/*.zip.blockmap",
+      "!dist/*.yml",
+      "!dist/builder-*.yml"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "appResources"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "appResources/icon.ico"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "appResources/icon.icns",
+      "category": "public.app-category.music",
+      "minimumSystemVersion": "10.12"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "MQueirozair",
+      "repo": "mrq-multitracks-play",
+      "releaseType": "release"
+    }
+  }
+}

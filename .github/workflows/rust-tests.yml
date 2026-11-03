@@ -1,0 +1,49 @@
+name: Testes do backend Rust
+
+# Roda `cargo test` no backend Tauri (src-tauri) em Windows, macOS e Linux —
+# hoje cobre principalmente o formato `.mrq` do MRQ Instrument Converter
+# (ver docs/mrq-converter-architecture.md e src-tauri/src/mrq/). Separado do
+# workflow de release (release-tauri.yml) de propósito: este aqui só
+# valida compilação + testes, nunca builda/assina/publica nada — pode rodar
+# em qualquer push/PR sem risco de criar um release indevido.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: dependências de sistema (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libasound2-dev cmake libclang-dev
+
+      - name: Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: cache do cargo
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      # mesmo motivo do release-tauri.yml: whisper-rs/whisper.cpp usa
+      # bindgen, que no runner Windows só acha o libclang pré-instalado com
+      # essa variável setada explicitamente.
+      - name: LIBCLANG_PATH (Windows, necessário pro build do whisper-rs)
+        if: matrix.os == 'windows-latest'
+        run: echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: cargo test (backend)
+        working-directory: src-tauri
+        run: cargo test -- --nocapture

@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Teste manual: decodificador .nsmp (Nord Sample Library)</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #15171c; color: #eee; max-width: 820px; margin: 24px auto; padding: 0 16px; }
+  h1 { font-size: 20px; }
+  .box { background: #1f2230; border: 1px solid #333850; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  button { background: #3a5bd9; color: #fff; border: none; border-radius: 6px; padding: 8px 14px; margin: 4px 6px 4px 0; cursor: pointer; font-size: 14px; }
+  button:hover { background: #4a6bf0; }
+  button.note { background: #2a2e40; }
+  button.note:hover { background: #3a3f58; }
+  button.note.silent { background: #5a2a2a; }
+  pre { background: #0d0f16; padding: 10px; border-radius: 6px; overflow: auto; font-size: 12px; white-space: pre-wrap; word-break: break-all; }
+  input[type=file] { color: #ccc; }
+  .status { font-size: 13px; color: #9aa; }
+  .ok { color: #7ee787; }
+  .err { color: #ff7b72; }
+</style>
+</head>
+<body>
+  <h1>Teste manual do decodificador Nord <code>.nsmp</code> / <code>.nsmp3</code> / <code>.nsmp4</code></h1>
+  <p class="status">
+    Página isolada (não faz parte do app) que chama o MESMO binário wasm (<code>public/vendor/npno-wasm/</code>)
+    usado pelo Rack de instrumentos, pra confirmar de ouvido que a decodificação real está funcionando.
+  </p>
+
+  <div class="box">
+    <h3>0) Primeiro, teste se o áudio do navegador funciona aqui</h3>
+    <button id="beepTest">🔔 Tocar um bipe de teste (1 segundo)</button>
+    <div id="beepStatus" class="status"></div>
+    <p class="status">
+      Se você clicar aqui e NÃO ouvir nada, o problema é o áudio do navegador/preview (ex.: aba sem som,
+      volume do sistema, ou o preview incorporado bloqueando autoplay) — não o decodificador .nsmp.
+      Nesse caso, tente abrir esta mesma página numa aba nova do navegador (fora do preview incorporado).
+    </p>
+  </div>
+
+  <div class="box">
+    <h3>1) Carregar uma amostra</h3>
+    <button id="loadSynthetic">Carregar amostra sintética de teste (gerada pelo próprio codificador Nord)</button>
+    <br/>
+    <label>Ou escolha um arquivo .nsmp/.nsmp3/.nsmp4 real do seu computador: </label>
+    <input type="file" id="fileInput" accept=".nsmp,.nsmp3,.nsmp4" />
+    <div id="loadStatus" class="status"></div>
+  </div>
+
+  <div class="box">
+    <h3>2) Metadados decodificados</h3>
+    <pre id="meta">(carregue uma amostra acima)</pre>
+  </div>
+
+  <div class="box">
+    <h3>3) Tocar notas (clique pra ouvir)</h3>
+    <div id="keys"></div>
+    <p class="status">Vermelho = nota fora de qualquer zona coberta (deve tocar mudo, sem fallback — comportamento real do hardware Nord pra .nsmp).</p>
+  </div>
+
+  <script type="module">
+    import init, { nsmp_decode, nsmp_sniff } from './vendor/npno-wasm/npno_wasm.js';
+
+    const metaEl = document.getElementById('meta');
+    const statusEl = document.getElementById('loadStatus');
+    const keysEl = document.getElementById('keys');
+
+    let audioCtx = null;
+    let zones = [];
+
+    async function ensureWasm() {
+      if (!window.__wasmReady) {
+        window.__wasmReady = init(new URL('./vendor/npno-wasm/npno_wasm_bg.wasm', document.baseURI));
+      }
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('timeout de 8s esperando o wasm inicializar (vendor/npno-wasm/npno_wasm_bg.wasm não respondeu)')), 8000)
+      );
+      await Promise.race([window.__wasmReady, timeout]);
+    }
+
+    function findZone(note) {
+      for (const z of zones) {
+        if (note > z.top_note) continue;
+        if (z.low_note !== null && note < z.low_note) return null;
+        return z;
+      }
+      return null;
+    }
+
+    function noteName(n) {
+      const names = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+      return names[n % 12] + (Math.floor(n / 12) - 1);
+    }
+
+    function buildKeys() {
+      keysEl.innerHTML = '';
+      for (let n = 36; n <= 96; n += 3) {
+        const btn = document.createElement('button');
+        btn.className = 'note';
+        btn.textContent = noteName(n) + ' (' + n + ')';
+        const zone = findZone(n);
+        if (!zone) btn.classList.add('silent');
+        btn.onclick = () => playNote(n);
+        keysEl.appendChild(btn);
+      }
+    }
+
+    function playNote(note) {
+      if (!audioCtx) audioCtx = new AudioContext();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      const zone = findZone(note);
+      if (!zone) {
+        statusEl.innerHTML = `Nota ${noteName(note)} (${note}): <span class="err">fora de qualquer zona — silêncio (esperado)</span>`;
+        return;
+      }
+      const src = audioCtx.createBufferSource();
+      src.buffer = zone.buffer;
+      src.playbackRate.value = Math.pow(2, (note - zone.root_key) / 12);
+      const gain = audioCtx.createGain();
+      gain.gain.setValueAtTime(0, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.8, audioCtx.currentTime + 0.005);
+      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.0);
+      src.connect(gain).connect(audioCtx.destination);
+      // Hook de diagnóstico pra automação de teste (não afeta o uso normal).
+      if (!window.__testAnalyser) {
+        window.__testAnalyser = audioCtx.createAnalyser();
+        window.__testAnalyser.fftSize = 2048;
+      }
+      gain.connect(window.__testAnalyser);
+      src.start();
+      src.stop(audioCtx.currentTime + 1.05);
+      statusEl.innerHTML = `Nota ${noteName(note)} (${note}): <span class="ok">tocando zona root_key=${zone.root_key} top_note=${zone.top_note}, audioCtx.state=${audioCtx.state}</span>`;
+    }
+
+    async function loadBytes(bytes, label) {
+      await ensureWasm();
+      statusEl.textContent = 'Decodificando ' + label + '...';
+      let decoded;
+      try {
+        decoded = nsmp_decode(bytes);
+      } catch (err) {
+        statusEl.innerHTML = `<span class="err">Falha ao decodificar: ${err}</span>`;
+        metaEl.textContent = String(err);
+        return;
+      }
+      const meta = JSON.parse(decoded.metadata_json);
+      const pcmBuffer = decoded.pcm.buffer.slice(decoded.pcm.byteOffset, decoded.pcm.byteOffset + decoded.pcm.byteLength);
+
+      if (!audioCtx) audioCtx = new AudioContext();
+      zones = meta.zones.map((z) => {
+        const int16 = new Int16Array(pcmBuffer, z.offset, z.length / 2);
+        const channels = Math.max(1, z.channels);
+        const buf = audioCtx.createBuffer(channels, z.frames, meta.sample_rate);
+        for (let ch = 0; ch < channels; ch++) {
+          const data = buf.getChannelData(ch);
+          for (let i = 0; i < z.frames; i++) data[i] = int16[i * channels + ch] / 32768;
+        }
+        return { ...z, buffer: buf };
+      }).sort((a, b) => a.top_note - b.top_note);
+
+      metaEl.textContent = JSON.stringify(meta, null, 2);
+      statusEl.innerHTML = `<span class="ok">OK:</span> "${meta.name}" (geração ${meta.generation}), ${meta.zones.length} zona(s), ${meta.skipped} pulada(s) — sniff: ${nsmp_sniff(bytes)}`;
+      buildKeys();
+    }
+
+    document.getElementById('beepTest').onclick = async () => {
+      if (!audioCtx) audioCtx = new AudioContext();
+      if (audioCtx.state === 'suspended') await audioCtx.resume();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.frequency.value = 440;
+      gain.gain.setValueAtTime(0, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.02);
+      gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1.0);
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 1.05);
+      document.getElementById('beepStatus').innerHTML =
+        `audioCtx.state = <b>${audioCtx.state}</b> — se o estado é "running" e mesmo assim não saiu som, é o áudio do navegador/preview, não o decodificador.`;
+    };
+
+    document.getElementById('loadSynthetic').onclick = async () => {
+      try {
+        statusEl.textContent = 'Baixando amostra sintética...';
+        const res = await fetch('./test-fixtures/synthetic-test-nsmp.nsmp');
+        if (!res.ok) throw new Error(`fetch falhou: HTTP ${res.status} ${res.statusText} (url: ${res.url})`);
+        const buf = await res.arrayBuffer();
+        statusEl.textContent = `Baixado (${buf.byteLength} bytes), decodificando...`;
+        await loadBytes(new Uint8Array(buf), 'amostra sintética');
+      } catch (err) {
+        statusEl.innerHTML = `<span class="err">ERRO ao carregar amostra sintética: ${(err && err.stack) || err}</span>`;
+        metaEl.textContent = String((err && err.stack) || err);
+      }
+    };
+
+    document.getElementById('fileInput').onchange = async (ev) => {
+      try {
+        const file = ev.target.files[0];
+        if (!file) return;
+        statusEl.textContent = `Lendo arquivo "${file.name}" (${file.size} bytes)...`;
+        const buf = await file.arrayBuffer();
+        statusEl.textContent = `Lido (${buf.byteLength} bytes), decodificando...`;
+        await loadBytes(new Uint8Array(buf), file.name);
+      } catch (err) {
+        statusEl.innerHTML = `<span class="err">ERRO ao carregar arquivo: ${(err && err.stack) || err}</span>`;
+        metaEl.textContent = String((err && err.stack) || err);
+      }
+    };
+
+    // Rede de segurança: qualquer erro/rejeição não tratada (ex.: falha ao
+    // inicializar o wasm) aparece na tela em vez de travar silenciosamente
+    // com o status antigo congelado.
+    window.addEventListener('error', (e) => {
+      statusEl.innerHTML = `<span class="err">ERRO (window.onerror): ${e.message}</span>`;
+    });
+    window.addEventListener('unhandledrejection', (e) => {
+      const reason = e.reason;
+      statusEl.innerHTML = `<span class="err">ERRO (promise não tratada): ${(reason && reason.stack) || reason}</span>`;
+    });
+  </script>
+
+</body>
+</html>

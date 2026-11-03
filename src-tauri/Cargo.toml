@@ -1,0 +1,86 @@
+[package]
+name = "mrq-rack-instrumentos"
+version = "0.2.48"
+description = "MRQ - Multitracks Play: tocador de multitracks ao vivo para banda/culto."
+authors = ["MRQ"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "mrq_multitracks_play_lib"
+crate-type = ["staticlib", "cdylib", "lib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["protocol-asset", "devtools"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-store = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-shell = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+tauri-plugin-midi = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.7", features = ["ws"] }
+tower-http = { version = "0.5", features = ["fs"] }
+futures-util = "0.3"
+mime_guess = "2"
+if-addrs = "0.13"
+# Reconhecimento de partes por voz (opcional, ver src/speech.rs) — roda
+# localmente via whisper.cpp, sem features de GPU (cuda/metal/vulkan) pra não
+# complicar o build em CI/máquinas sem GPU dedicada; CPU-only é suficiente
+# pra uma ação manual e esporádica ("Reconhecer partes"), não tempo real.
+whisper-rs = "0.14"
+reqwest = { version = "0.13", default-features = false, features = ["stream", "rustls"] }
+# MRQ Instrument Converter (formato .mrq, ver src/mrq/ e
+# docs/mrq-converter-architecture.md) — todas puro Rust, sem dependência de
+# C/licenças de codec de terceiros, pra não reproduzir o problema de
+# toolchain que o .npno já teve com wasm-pack/reference-types.
+flacenc = "0.5"      # codificador FLAC (Apache-2.0)
+claxon = "0.4"        # decodificador FLAC (Apache-2.0)
+sha2 = "0.10"         # SHA-256 (MIT OR Apache-2.0)
+tempfile = "3"        # escrita segura (arquivo temporário + rename atômico), MIT OR Apache-2.0
+# Fase 3 — importador SF2/SF3 (src/importers/sf2.rs), ambas puro Rust:
+soundfont = "0.1"    # parser binário SF2/SF3 completo (presets/instrumentos/
+                      # zonas/os 60 generators do spec/modulators/detecção de
+                      # amostra Vorbis), projeto OxiSynth. MIT.
+lewton = "0.10"       # decodificador Ogg/Vorbis puro Rust, sem `unsafe`, pra
+                      # decodificar as amostras comprimidas de um .sf3 (cada
+                      # amostra SF3 é um stream Ogg/Vorbis autocontido). MIT OR Apache-2.0.
+# Fase 4 — importador NPNO/NSMP (src/importers/npno.rs). Dependência NATIVA
+# independente da que já existe em native/npno-wasm (wasm, usada só pela
+# reprodução ao vivo no Rack) — mesma versão, mesmo crate, dois alvos de
+# compilação separados, de propósito (importadores ficam só no backend,
+# nunca atravessam o WebView). Licença verificada em docs.rs: BSD-3-Clause,
+# projeto comunitário não afiliado à Clavia.
+nord-format = "0.8"
+# Fase 7 — importador WAV/AIFF/FLAC/MP3/OGG avulso (src/importers/audio_file.rs).
+# Licença verificada em crates.io/docs.rs: MPL-2.0 (Mozilla Public License
+# 2.0, copyleft fraco por arquivo) — segura como dependência não modificada
+# em app proprietário, mesma conclusão já aplicada a outras licenças
+# copyleft fracas do projeto (lewton é MIT OR Apache-2.0, mas o raciocínio
+# de "não modificamos o crate, só linkamos" é o mesmo). Usado uniformemente
+# pros 5 formatos (em vez de decidir caso a caso entre claxon/lewton/um
+# decoder de MP3 à parte) por ser essa a orientação explícita do documento
+# de arquitetura ("usa symphonia no backend"); claxon/lewton continuam só
+# no contexto original deles (amostras comprimidas embutidas em SF2/SF3,
+# Fase 3), sem relação com este importador. `wav`/`ogg`/`flac`/`vorbis`/
+# `pcm`/`adpcm` já vêm habilitados por padrão; `aiff` e `mp3` precisam ser
+# pedidos explicitamente.
+symphonia = { version = "0.6", features = ["aiff", "mp3"] }
+
+[features]
+# Permite rodar sem o bundle de produção durante o dev, usando o dev-server do Vite.
+custom-protocol = ["tauri/custom-protocol"]
+
+[profile.dev]
+# Sandbox de build com pouca RAM: debuginfo completo (nível 2) faz o rustc
+# consumir >1GB por crate grande (ex: gtk-rs) e derruba o processo por OOM.
+# debug=0 reduz drasticamente o pico de memória durante a compilação.
+debug = 0
+
