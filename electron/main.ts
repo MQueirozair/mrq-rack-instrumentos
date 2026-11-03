@@ -11,7 +11,7 @@ import { RemoteServer } from './remoteServer';
 const isDev = !app.isPackaged;
 
 const UPDATE_REPO_OWNER = 'MQueirozair';
-const UPDATE_REPO_NAME = 'mrq-multitracks-play';
+const UPDATE_REPO_NAME = 'mrq-rack-instrumentos';
 
 // Protocolo customizado para servir arquivos de áudio locais sem copiar nada
 // e sem os bloqueios de CORS/segurança do file:// puro.

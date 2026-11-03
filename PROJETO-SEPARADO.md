@@ -86,3 +86,24 @@ app independente:
 3. Depois que os 3 projetos estiverem cada um 100% funcionando de forma
    independente, planejar como reunir os 3 de volta (como módulos/peças de
    um só produto, se der certo).
+
+## Nota de verificação (passagem adicional)
+
+Revisei este projeto depois do trim acima (feito numa execução anterior/
+paralela desta mesma tarefa) e confirmei que está tudo consistente:
+`tsc --noEmit` limpo, `vite build` limpo, testes automatizados de formato
+(SF2/NKI/EXS/SYX/Kontakt/MrqLayerVoice) todos passando, sem nenhum import
+quebrado apontando pra arquivo removido. Só faltava corrigir 2 referências
+esquecidas ao nome do repositório original no caminho legado do Electron
+(`package.json` > `build.publish.repo` e `electron/main.ts` >
+`UPDATE_REPO_NAME`) — corrigidas agora.
+
+**Aviso sobre a chave de assinatura:** os secrets `TAURI_SIGNING_PRIVATE_KEY`
+e `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` já estão cadastrados neste
+repositório (confirmado via API) e a `pubkey` em `tauri.conf.json` parece
+corresponder a eles (só um conjunto de secrets existe, sem sinal de
+sobrescrita posterior). Só não tenho uma cópia local de backup dessa chave
+privada nesta sandbox (foi gerada por uma sessão/sandbox diferente) — se
+algum dia precisar trocar, gere um par novo com `npx @tauri-apps/cli@2
+signer generate` e atualize os dois secrets + a `pubkey` juntos (do
+contrário o updater do app vai rejeitar os releases assinados).

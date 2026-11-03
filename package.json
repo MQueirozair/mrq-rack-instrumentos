@@ -123,7 +123,7 @@
     "publish": {
       "provider": "github",
       "owner": "MQueirozair",
-      "repo": "mrq-multitracks-play",
+      "repo": "mrq-rack-instrumentos",
       "releaseType": "release"
     }
   }
