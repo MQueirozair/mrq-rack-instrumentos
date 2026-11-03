@@ -63,9 +63,9 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://github.com/MQueirozair/mrq-multitracks-play/releases/latest/download/latest.json"
+        "https://github.com/MQueirozair/mrq-rack-instrumentos/releases/latest/download/latest.json"
       ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFFNTVBNDYxRjA2NjlBODEKUldTQm1tYndZYVJWcmc5UWRuaDVpTFE2dFBCT0lSWlEwd3l1ZGJlYlV2WUU2MXJ6YXZtTlVRWGQK"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE0QkZBNzNEN0Q1MkNDODAKUldTQXpGSjlQYWUvRkZvNlovSTdFandDdGpKL0RWL1d0N2wyK1kwT2k4U1NnMzkvc3phQ3VyS1MK"
     }
   }
 }
