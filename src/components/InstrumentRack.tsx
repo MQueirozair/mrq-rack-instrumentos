@@ -32,8 +32,6 @@ import { defaultRackEqBands, migrateRackLayers, RACK_PAD_LAYER_INDEX, RACK_PAD_N
 import { rackEngine, detectRackFormat, PITCH_BEND_RANGE_SEMITONES, reverbModePreset } from '../audio/rack/RackEngine';
 import { applyLayerParamsToEngine, reloadAllRackLayers, reloadLayerFromDisk as reloadLayerFromDiskShared } from '../audio/rack/rackReload';
 import { onRackProgramChange, onRackRawNoteOn, computeVelocityCurve } from '../midi/rackMidiRouter';
-import TransportBar from './TransportBar';
-import PartsGrid from './PartsGrid';
 import RackEqGraph from './RackEqGraph';
 import RackKnob from './RackKnob';
 import RackFxModule from './RackFxModule';
@@ -765,7 +763,6 @@ export default function InstrumentRack() {
         onDeleteScene={handleDeleteScene}
       />
     </div>
-    <RackMusicPanel />
     <RackKeyboardStrip layers={rack.layers} />
     {sceneNameDraft !== null && (
       <SceneNameModal initialName={sceneNameDraft} onConfirm={confirmSaveScene} onCancel={() => setSceneNameDraft(null)} />
@@ -1253,60 +1250,6 @@ function RackPadLayerCard({
           onDuplicateTo={onDuplicateTo}
         />
       )}
-    </div>
-  );
-}
-
-/**
- * Painel de música dentro da aba Rack: deixa tocar/pausar/parar a música do
- * Setlist e pular entre as partes sem precisar sair pra aba de reprodução —
- * essencial pra quem está tocando ao vivo usando os instrumentos do Rack mas
- * ainda precisa comandar a faixa/backing track. Reaproveita TransportBar e
- * PartsGrid (mesmos componentes da aba de reprodução) e tem botão próprio
- * pra minimizar e economizar espaço de tela.
- */
-function RackMusicPanel() {
-  const currentSong = useStore((s) => s.currentSong);
-  const engineState = useStore((s) => s.engineState);
-  const jumpToPart = useStore((s) => s.jumpToPart);
-  const toggleLoopActivePart = useStore((s) => s.toggleLoopActivePart);
-  // Começa minimizado: quem abre o Rack geralmente quer ver as camadas de
-  // instrumento primeiro — o painel de música ocupa bastante espaço vertical
-  // e fica vazio até carregar algo no Setlist, então é mais útil começar
-  // fechado e deixar quem precisa dele abrir com 1 clique (ver o botão
-  // collapsed/ChevronUp/ChevronDown logo abaixo).
-  const [collapsed, setCollapsed] = useState(true);
-
-  return (
-    <div className={`rack-music-panel ${collapsed ? 'collapsed' : ''}`}>
-      <div className="rack-strip-header">
-        <span className="rack-strip-title">
-          <Piano size={14} /> Música {currentSong ? `— ${currentSong.title}` : ''}
-        </span>
-        <button
-          className="rack-strip-toggle"
-          title={collapsed ? 'Mostrar controles de música' : 'Minimizar controles de música'}
-          onClick={() => setCollapsed((v) => !v)}
-        >
-          {collapsed ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-        </button>
-      </div>
-      {!collapsed &&
-        (currentSong ? (
-          <div className="rack-music-panel-body">
-            <TransportBar />
-            <PartsGrid
-              song={currentSong}
-              activePartId={engineState.activePartId}
-              pendingPartId={engineState.pendingPartId}
-              loopActive={engineState.loopActivePart}
-              onJump={(id) => jumpToPart(id)}
-              onToggleLoop={() => toggleLoopActivePart()}
-            />
-          </div>
-        ) : (
-          <div className="rack-music-panel-empty">Nenhuma música carregada no Setlist.</div>
-        ))}
     </div>
   );
 }

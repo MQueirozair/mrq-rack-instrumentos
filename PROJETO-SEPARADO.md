@@ -7,86 +7,82 @@ em 3 projetos independentes, cada um instalável/testável sozinho:
 1. **MRQ Multitracks Play2** (`mrq-multitracks-play2`) — o player de
    multitracks.
 2. **MRQ Rack de Instrumentos** (este projeto) — o rack de instrumentos
-   virtuais (SF2/NKI/EXS24/DX7/.mrq, efeitos, pads).
-3. **MRQ Instrument Converter** (`mrq-instrument-converter`) — o
-   conversor de formatos de instrumento pro formato próprio `.mrq`.
+   virtuais (SF2/NKI/EXS24/DX7/.mrq, efeitos, pads, teclado virtual).
+3. **MRQ Instrument Converter** (`mrq-instrument-converter`) — o conversor
+   de formatos de instrumento pro formato próprio `.mrq`.
 
 ## Estado atual (ENXUGADO ✅)
 
-Este projeto já foi trimado pra abrir DIRETO no Rack de instrumentos,
-como app independente:
+Este projeto já foi trimado pra abrir DIRETO no Rack de instrumentos, como
+app independente:
 
 - `src/App.tsx` reescrito: sem a barra de navegação original (biblioteca,
-  setlist, player, Conversor) — só `TitleBar` + `MidiBridge` + o Rack
-  (`InstrumentRack`) + atalho de Ajuda/Configurações.
-- Removidos de `src/components/`: todas as telas exclusivas do player de
-  multitracks (`PlayerShell`, `TracksView`, `MixerStrip`, `ArrangeEditor`,
-  `ChordView`, `CountInOverlay`, `NextSongPreview`, `SongHeader`,
-  `SongNotes`, `TeleprompterOverlay`, `TransitionBanner`, `SetlistPanel`,
-  `LibraryPanel`, `TempoPanel`, `OutputsPanel`, `KeyPanel`,
-  `GuideVoicePanel`, `MidiPanel`, `AudioWatchdog`, `PadWidget`,
-  `IconRail`) e do Conversor (`InstrumentConverter`,
-  `MrqInstrumentAnalyzer`, `MappingEditor`, `KontaktCaptureDialog`). De 36
-  componentes em `src/components/`, sobraram 16. Também removido o
-  harness de pré-visualização do Conversor (`src/devPreview/`,
-  `dev-preview.html`, `vite.preview.config.ts`, script `dev:preview`) —
-  é específico do outro projeto.
-- **Mantidos de propósito**: `TitleBar`, `SessionTimer`,
-  `AudioHealthIndicator`, `ChordIndicator`, `RackMidiPanel`,
-  `SettingsModal`, `HelpPanel`, `ErrorBoundary`, `InstrumentRack` (o
-  próprio Rack) e as peças que ELE usa: `RackFxModule`, `RackKnob`,
-  `RackEqGraph`. **`MidiBridge` foi mantido de propósito** (diferente do
-  projeto do Conversor): é ele quem liga um teclado/controlador MIDI
-  físico aos comandos do Rack (volume/mute/solo/octaver por camada,
-  pânico — ver os casos `rack:*` dentro dele); sem ele só o teclado
-  virtual na tela funciona.
-- `InstrumentRack.tsx` (2796 linhas) **não foi editado** — ele próprio
-  importa `TransportBar` e `PartsGrid` pra um painel secundário
-  ("Música", dentro da aba Rack) que deixa tocar/pausar uma música do
-  Setlist sem sair da tela do Rack. Sem Biblioteca/Setlist nesta versão,
-  esse painel fica inofensivo (mostra "Nenhuma música carregada") — não
-  valia o risco de editar um arquivo desse tamanho só pra remover um
-  painel secundário que já degrada bem sozinho. `TransportBar` por sua
-  vez precisa de `VisualMetronome` (restaurado) — `TracksView.tsx` foi
-  removido por não ser usado por nada aqui.
+  setlist, player, Conversor, etc.) — só `TitleBar` + `MidiBridge` + o Rack
+  (`InstrumentRack`) + atalhos de MIDI/Ajuda/Configurações.
+- Removido de dentro do próprio `InstrumentRack.tsx` o painel "Música"
+  (`RackMusicPanel`), que deixava tocar/pausar a faixa do Setlist sem sair
+  da aba — dependia do player de multitracks completo (Setlist/Library/
+  PlayerShell), o que ia contra o objetivo de standalone. Quem quiser tocar
+  o Rack junto com uma música vai rodar o **MRQ Multitracks Play2** ao lado
+  e conectar os instrumentos via MIDI/áudio do sistema operacional.
+- Removidos de `src/components/`: tudo exclusivo do player de multitracks
+  (`PlayerShell`, `ArrangeEditor`, `TracksView`, `TransportBar`,
+  `WaveformCanvas`, `MixerStrip`, `ChordView`, `CountInOverlay`,
+  `NextSongPreview`, `PartsGrid`, `SongHeader`, `SongNotes`,
+  `TeleprompterOverlay`, `TransitionBanner`, `VisualMetronome`,
+  `SetlistPanel`, `LibraryPanel`, `TempoPanel`, `OutputsPanel`, `KeyPanel`,
+  `GuideVoicePanel`, `PadWidget`) e tudo exclusivo do Conversor
+  (`InstrumentConverter`, `MrqInstrumentAnalyzer`, `MappingEditor`,
+  `KontaktCaptureDialog`, `IconRail`). Também removido `src/devPreview/` e
+  `vite.preview.config.ts` (harness de pré-visualização específico do
+  Conversor). De 40 componentes em `src/components/`, sobraram 14.
+- **Mantidos de propósito** (centrais ao Rack ou genéricos/compartilhados):
+  `InstrumentRack`, `RackFxModule`, `RackKnob`, `RackEqGraph`,
+  `RackMidiPanel`, `MidiBridge` (rotea CCs/notas MIDI físicos pros comandos
+  do Rack — volume/mute/solo/octaver por camada, master, pânico — é
+  funcionalidade central do Rack, não do player), `MidiPanel` (tela de
+  configurar os bindings de MIDI), `TitleBar`, `SessionTimer`,
+  `AudioHealthIndicator`, `ChordIndicator`, `SettingsModal`, `HelpPanel`,
+  `ErrorBoundary`.
 - `src/audio/` e `src/midi/` **não foram tocados** (mesma decisão do
-  projeto do Conversor): o Rack e o Conversor compartilham os mesmos
-  parsers de formato (`mrqFormat.ts`, `exsImport.ts`, etc.) dentro de
-  `src/audio/rack/` — deduplicar é tarefa de quando os 3 projetos forem
-  reunidos, não antes.
+  Conversor): os parsers de formato moram na mesma pasta que o motor de
+  reprodução ao vivo do Rack, e os dois projetos precisam deles — real
+  deduplicação é tarefa de quando os 3 forem reunidos, não antes.
+- Chave de assinatura (Tauri updater) **própria**, gerada só pra este app,
+  já cadastrada como secret do GitHub Actions deste repo
+  (`TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) e com
+  a pubkey/endpoint correspondentes em `src-tauri/tauri.conf.json` apontando
+  pra este repositório (não mais pro `mrq-multitracks-play` original). A
+  chave privada/senha também ficam anotadas (fora de qualquer repo git) em
+  `~/CHAVES-DE-ASSINATURA-TAURI-NAO-COMPARTILHAR.md` nesta sandbox — vale a
+  pena salvar em local seguro, já que não tem como recuperar o valor de
+  volta do GitHub (secret é write-only).
 - Branding corrigido: `package.json` (`productName`, `description`,
   `appId` → `com.mrq.rackinstrumentos`), `src-tauri/tauri.conf.json`
-  (título da janela + endpoint/chave do auto-updater), `index.html`
-  (`<title>`).
-- **Chave de assinatura própria**: gerei um par de chaves Tauri novo
-  (exclusivo deste projeto, não o do app original) e cadastrei a privada
-  como secret do GitHub Actions deste repo (`TAURI_SIGNING_PRIVATE_KEY` /
-  `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) — sem isso o workflow "Release
-  (Tauri)" falharia na etapa de assinatura. O endpoint do updater em
-  `tauri.conf.json` também foi corrigido pra apontar pra este repo (antes
-  ainda apontava pro `mrq-multitracks-play` original).
+  (título da janela), `index.html` (`<title>`).
 
 ### Verificação feita (sem compilar nativo nesta sandbox)
 
 - `npx tsc -b --noEmit` → limpo, sem erros.
-- `npm run build:renderer` (= `tsc --noEmit && vite build`, o MESMO
-  comando que o workflow "Release (Tauri)" roda antes de empacotar) →
-  build limpo, ~671 KB de JS (contra ~846 KB do app completo).
-- Testes automatizados relevantes ao Rack, todos passando: `test:syx`,
-  `test:nki`, `test:exs`, `test:mrq-rack`, `test:sf2-sanitize`,
-  `test:kontakt-capture`.
-- Smoke-test visual via `vite dev` (preview ao vivo) → app abre, título
-  certo, sem crash.
+- `npm run build:renderer` (mesmo comando que o workflow "Release (Tauri)"
+  roda antes de empacotar) → build limpo, ~668 KB de JS (contra ~846 KB do
+  app completo).
+- `npm run test:mrq-rack` (testes de `MrqLayerVoice.ts`, o motor de
+  reprodução por trás das camadas do Rack) → todos passando.
 - **Não** foi tentado build nativo Tauri/Rust nesta sandbox (sem
   `cargo`/`rustc`/`webkit2gtk` instalados). A verificação definitiva do
-  instalador real (Windows/macOS/Linux) depende do GitHub Actions deste
-  repo, que agora já tem a chave de assinatura própria cadastrada.
+  instalador real depende do GitHub Actions deste repo — já com os secrets
+  de assinatura cadastrados, então o workflow "Release (Tauri)" deve
+  conseguir rodar até o fim quando for disparado (ex.: criando uma tag).
 
 ## Próximos passos
 
 1. Fazer o mesmo trabalho de enxugamento no `mrq-multitracks-play2`
-   (manter o player, remover o Rack e o Conversor).
-2. Depois que os 3 projetos estiverem cada um 100% funcionando de forma
-   independente (instalador próprio rodando via CI de cada repo), o
-   usuário pediu pra planejarmos juntar os 3 de volta (como módulos/peças
-   de um só produto, se der certo).
+   (manter o player de multitracks, remover Rack e Conversor).
+2. Disparar o workflow "Release (Tauri)" (ex.: tag `v0.1.0`) em cada um dos
+   3 repositórios pra confirmar que os instaladores reais (Windows/macOS/
+   Linux) saem funcionando — é a validação final que esta sandbox não
+   consegue fazer sozinha.
+3. Depois que os 3 projetos estiverem cada um 100% funcionando de forma
+   independente, planejar como reunir os 3 de volta (como módulos/peças de
+   um só produto, se der certo).

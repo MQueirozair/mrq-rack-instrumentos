@@ -3,7 +3,7 @@
   "productName": "MRQ Rack de Instrumentos",
   "private": true,
   "version": "0.2.48",
-  "description": "MRQ Rack de Instrumentos: rack de instrumentos virtuais (SF2/NKI/EXS24/DX7/.mrq) com efeitos e pads, tocável via teclado virtual ou MIDI.",
+  "description": "MRQ Rack de Instrumentos: rack de instrumentos virtuais (SF2/NKI/EXS24/DX7/.mrq) com efeitos e pads, tocável via MIDI/teclado virtual.",
   "author": "MRQ",
   "main": "dist-electron/electron/main.js",
   "type": "module",
