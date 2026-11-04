@@ -34,6 +34,7 @@ import SettingsModal from './components/SettingsModal';
 export default function App() {
   const ready = useStore((s) => s.ready);
   const init = useStore((s) => s.init);
+  const setNav = useStore((s) => s.setNav);
   const settings = useStore((s) => s.settings);
   const toasts = useStore((s) => s.toasts);
   const dismissToast = useStore((s) => s.dismissToast);
@@ -43,6 +44,18 @@ export default function App() {
   useEffect(() => {
     init();
   }, [init]);
+
+  // A TitleBar (mantida igual à do app original) só mostra os controles de
+  // MIDI do Rack e o indicador de acorde no topo quando o estado global
+  // `nav` é 'rack' (ver TitleBar.tsx) — isso vinha do app original, onde o
+  // usuário "entrava" na tela do Rack trocando de aba. Como este projeto
+  // abre direto no Rack sem passar pela navegação por abas, `nav` nunca
+  // era setado e esses dois indicadores do topo ficavam escondidos pra
+  // sempre. Força `nav` pra 'rack' assim que o app carrega, pra ligar os
+  // dois de volta.
+  useEffect(() => {
+    setNav('rack');
+  }, [setNav]);
 
   if (!ready) {
     return (
