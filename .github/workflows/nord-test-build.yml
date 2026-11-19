@@ -50,7 +50,7 @@ jobs:
         env:
           VITE_MRQ_TEST_BUILD: '1'
           CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/.github/cmake/ggml-no-native.cmake
-        run: npx tauri build --target "${{ matrix.target }}" --bundles "${{ matrix.bundle }}" --config src-tauri/tauri.nord-test.conf.json
+        run: npx --yes @tauri-apps/cli@2 build --target "${{ matrix.target }}" --bundles "${{ matrix.bundle }}" --config src-tauri/tauri.nord-test.conf.json
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform }}
