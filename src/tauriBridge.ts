@@ -269,7 +269,7 @@ function emitUpdateStatus(payload: UpdateStatusPayload) {
 }
 
 async function performUpdateCheck(): Promise<UpdateStatusPayload> {
-  if (import.meta.env.DEV) return { status: 'dev' };
+  if (import.meta.env.DEV || import.meta.env.VITE_MRQ_TEST_BUILD === '1') return { status: 'dev' };
   emitUpdateStatus({ status: 'checking' });
   try {
     const update = await checkForUpdate();

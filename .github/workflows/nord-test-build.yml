@@ -1,0 +1,62 @@
+name: Instaladores experimentais Nord
+on:
+  push:
+    branches: [wip/nord-audio-builds]
+permissions:
+  contents: read
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundle: nsis
+          - platform: macos-arm64
+            os: macos-15
+            target: aarch64-apple-darwin
+            bundle: dmg
+          - platform: macos-intel
+            os: macos-15
+            target: x86_64-apple-darwin
+            bundle: dmg
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+      - name: dependencias frontend
+        run: npm ci
+      - name: testes Nord
+        run: npm run test:nord-release
+      - name: testes sustain MIDI
+        run: npm run test:rack-sustain-channels
+      - name: caminho LLVM Windows
+        if: matrix.platform == 'windows-x64'
+        shell: pwsh
+        run: echo "LIBCLANG_PATH=C:\Program Files\LLVM\bin" >> $env:GITHUB_ENV
+      - name: build instalador de teste
+        shell: bash
+        env:
+          VITE_MRQ_TEST_BUILD: '1'
+          CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/.github/cmake/ggml-no-native.cmake
+        run: npx tauri build --target "${{ matrix.target }}" --bundles "${{ matrix.bundle }}" --config src-tauri/tauri.nord-test.conf.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*-setup.exe
+            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*_setup.exe
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,5 @@
+{
+  "productName": "MRQ Rack Teste Nord",
+  "identifier": "com.mrq.rackinstrumentos.testenord",
+  "bundle": {"createUpdaterArtifacts": false, "macOS": {"signingIdentity": "-"}}
+}
