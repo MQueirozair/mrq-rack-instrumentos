@@ -36,6 +36,8 @@ interface RootStrokes {
 
 const ATTACK_FADE_SEC = 0.002;
 const RELEASE_FADE_SEC = 0.06;
+/** Ganho provisório da amostra de soltura; requer comparação com hardware. */
+const RELEASE_SAMPLE_GAIN = 0.45;
 
 /**
  * Camada "Piano Nord / .npno": decodifica de verdade uma biblioteca de piano
@@ -49,17 +51,17 @@ const RELEASE_FADE_SEC = 0.06;
  * seguem exatamente as regras documentadas pelo nord-format como confirmadas
  * em hardware real (ver comentários abaixo).
  *
- * Limitação honesta: o "release trigger" (a camada de banco "release", tocada
- * ao soltar a tecla) não é reproduzido aqui — tocamos apenas o banco "attack"
- * no note-on; sem acesso a uma Nord física para validar o comportamento exato
- * de blend ataque/liberação, preferimos não arriscar um resultado incorreto.
- * Isso é uma simplificação documentada, não uma substituição do formato.
+ * Se houver amostras de soltura, toca uma ao receber note-off. Seu ganho é
+ * conservador e aproximado: não foi calibrado contra hardware físico. Bancos
+ * de ressonância continuam fora deste player. A conversão para .mrq é um
+ * caminho separado e ainda não preserva esses bancos.
  */
 export class NpnoLayerVoice {
   private ctx: AudioContext;
   private rootMap = new Map<number, RootStrokes>();
   private keyMap: number[] = [];
-  private active = new Map<number, { src: AudioBufferSourceNode; gain: GainNode; baseRate: number }>();
+  private active = new Map<number, { src: AudioBufferSourceNode; gain: GainNode; baseRate: number; root: number; velocity: number }>();
+  private releaseVoices = new Set<{ src: AudioBufferSourceNode; gain: GainNode; baseRate: number }>();
   private bendSemitones = 0;
   private libName = '';
   readonly output: GainNode;
@@ -125,7 +127,7 @@ export class NpnoLayerVoice {
     if (meta.skipped > 0) {
       console.warn(`[npno] ${meta.skipped} stroke(s) desta biblioteca não puderam ser decodificados e ficarão mudos.`);
     }
-    if (this.rootMap.size === 0) {
+    if (![...this.rootMap.values()].some((entry) => entry.attack.length > 0)) {
       throw new Error('Este .npno não tem nenhuma nota de ataque decodificável — talvez seja uma variante não coberta ainda.');
     }
 
@@ -191,11 +193,31 @@ export class NpnoLayerVoice {
         /* já desconectado */
       }
     };
-    this.active.set(note, { src, gain, baseRate });
+    this.active.set(note, { src, gain, baseRate, root, velocity });
   }
 
   noteOff(note: number) {
+    const voice = this.active.get(note);
+    if (!voice) return; // note-off duplicado não cria outra soltura
+    const buffer = this.pickLayer(this.rootMap.get(voice.root)?.release ?? [], voice.velocity);
     this.stopNote(note, RELEASE_FADE_SEC);
+    if (!buffer) return;
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    src.playbackRate.value = voice.baseRate * Math.pow(2, this.bendSemitones / 12);
+    const gain = this.ctx.createGain();
+    const now = this.ctx.currentTime;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(Math.max(0, Math.min(1, voice.velocity / 127)) * RELEASE_SAMPLE_GAIN, now + ATTACK_FADE_SEC);
+    src.connect(gain);
+    gain.connect(this.output);
+    const tail = { src, gain, baseRate: voice.baseRate };
+    this.releaseVoices.add(tail);
+    src.onended = () => {
+      this.releaseVoices.delete(tail);
+      try { gain.disconnect(); } catch { /* já desconectado */ }
+    };
+    src.start(now);
   }
 
   /** Pitch bend em semitons (ver RackEngine.PITCH_BEND_RANGE_SEMITONES), aplicado às notas já soando. */
@@ -203,7 +225,7 @@ export class NpnoLayerVoice {
     this.bendSemitones = semitones;
     const now = this.ctx.currentTime;
     const bendFactor = Math.pow(2, semitones / 12);
-    for (const voice of this.active.values()) {
+    for (const voice of [...this.active.values(), ...this.releaseVoices]) {
       voice.src.playbackRate.setTargetAtTime(voice.baseRate * bendFactor, now, 0.01);
     }
   }
@@ -225,6 +247,16 @@ export class NpnoLayerVoice {
 
   allNotesOff() {
     for (const note of Array.from(this.active.keys())) this.stopNote(note, 0.05);
+    for (const voice of this.releaseVoices) {
+      try {
+        const now = this.ctx.currentTime;
+        voice.gain.gain.cancelScheduledValues(now);
+        voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+        voice.gain.gain.linearRampToValueAtTime(0, now + 0.05);
+        voice.src.stop(now + 0.06);
+      } catch { /* fonte já parada */ }
+    }
+    this.releaseVoices.clear();
   }
 
   dispose() {

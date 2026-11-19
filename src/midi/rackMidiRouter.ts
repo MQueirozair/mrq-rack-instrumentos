@@ -34,9 +34,9 @@ export function onRackRawNoteOn(cb: (note: number) => void): () => void {
 let velocityCurve: RackVelocityCurve = 'linear';
 let transpose = 0;
 let sustainEnabled = true;
-let sustainDown = false;
-/** notas (já transpostas) soltas fisicamente enquanto o pedal estava pressionado */
-const heldBySustain = new Set<number>();
+/** Estado e notas diferidos por canal, evitando soltar outra camada MIDI. */
+const sustainDown = new Set<number>();
+const heldBySustain = new Map<number, Set<number>>();
 
 export function setRackVelocityCurve(curve: RackVelocityCurve) {
   velocityCurve = curve;
@@ -48,7 +48,10 @@ export function setRackTranspose(semitones: number) {
 
 export function setRackSustainEnabled(enabled: boolean) {
   sustainEnabled = enabled;
-  if (!enabled && sustainDown) releaseSustainedNotes();
+  if (!enabled) {
+    for (const channel of heldBySustain.keys()) releaseSustainedNotes(channel);
+    sustainDown.clear();
+  }
 }
 
 /**
@@ -75,9 +78,11 @@ function applyVelocityCurve(v: number): number {
   return computeVelocityCurve(velocityCurve, v);
 }
 
-function releaseSustainedNotes() {
-  for (const note of heldBySustain) rackEngine.noteOff(note);
-  heldBySustain.clear();
+function releaseSustainedNotes(channel: number) {
+  const notes = heldBySustain.get(channel);
+  if (!notes) return;
+  for (const note of notes) rackEngine.noteOff(note, channel);
+  heldBySustain.delete(channel);
 }
 
 export function onRackMidiDevicesChanged(cb: () => void): () => void {
@@ -97,11 +102,10 @@ function handleMessage(ev: MIDIMessageEvent) {
     const value = data[2] ?? 0;
     if (controller === 64 && sustainEnabled) {
       const down = value >= 64;
-      if (down && !sustainDown) {
-        sustainDown = true;
-      } else if (!down && sustainDown) {
-        sustainDown = false;
-        releaseSustainedNotes();
+      if (down) {
+        sustainDown.add(channel);
+      } else if (sustainDown.delete(channel)) {
+        releaseSustainedNotes(channel);
       }
     }
     return;
@@ -129,12 +133,14 @@ function handleMessage(ev: MIDIMessageEvent) {
 
   const isNoteOn = command === 0x90 && rawVelocity > 0;
   if (isNoteOn) {
-    heldBySustain.delete(note);
+    heldBySustain.get(channel)?.delete(note);
     rackEngine.noteOn(note, applyVelocityCurve(rawVelocity), channel);
     rawNoteOnListeners.forEach((cb) => cb(note));
   } else {
-    if (sustainDown && sustainEnabled) {
-      heldBySustain.add(note);
+    if (sustainDown.has(channel) && sustainEnabled) {
+      let held = heldBySustain.get(channel);
+      if (!held) { held = new Set<number>(); heldBySustain.set(channel, held); }
+      held.add(note);
     } else {
       rackEngine.noteOff(note, channel);
     }

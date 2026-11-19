@@ -25,7 +25,9 @@
     "test:exs": "node scripts/test-exs-import.mjs",
     "test:mrq-rack": "node scripts/test-mrq-rack-layer.mjs",
     "test:sf2-sanitize": "node scripts/test-sf2-info-sanitize.mjs",
-    "test:kontakt-capture": "node scripts/test-kontakt-capture.mjs"
+    "test:kontakt-capture": "node scripts/test-kontakt-capture.mjs",
+    "test:nord-release": "node scripts/test-nord-release.mjs",
+    "test:rack-sustain-channels": "node scripts/test-rack-sustain-channels.mjs"
   },
   "dependencies": {
     "@audio/synth-dx7": "^0.1.0",
